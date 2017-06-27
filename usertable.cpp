@@ -381,11 +381,28 @@ void UserTable::Dispose()
 
 void UserTable::OnEventDirectory(const InotifyEvent& rEvt, InotifyWatch* pWatch, IncronTabEntry* pEntry)
 {
-  if (rEvt.IsType(IN_ISDIR)) {
-    std::string sDirectoryPath = pWatch->GetPath() + "/" + IncronTabEntry::GetSafePath(rEvt.GetName());
+  if (!rEvt.IsType(IN_ISDIR)) {
+    return;
+  }
 
+  std::string sDirectoryPath = pWatch->GetPath() + "/" + IncronTabEntry::GetSafePath(rEvt.GetName());
+
+  if (!m_recursive) {
     if (rEvt.IsType(IN_DELETE) || rEvt.IsType(IN_MOVED_FROM)) {
       RemoveWatch(sDirectoryPath);
+    }
+  } else {
+    TPathList Paths;
+    if (rEvt.IsType(IN_DELETE) || rEvt.IsType(IN_MOVED_FROM)) {
+      GetDirectoryTree(sDirectoryPath, Paths);
+      for (TPathList::const_iterator iter = Paths.begin(); iter != Paths.end(); ++iter) {
+        RemoveWatch(*iter);
+      }
+    } else if (rEvt.IsType(IN_CREATE) || rEvt.IsType(IN_MOVED_TO)) {
+      GetDirectoryTree(sDirectoryPath, Paths);
+      for (TPathList::const_iterator iter = Paths.begin(); iter != Paths.end(); ++iter) {
+        AddWatch(*iter, pEntry);
+      }
     }
   }
 }
